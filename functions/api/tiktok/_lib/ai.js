@@ -104,10 +104,12 @@ export function parseJson(s) {
 export async function runTextJson(env, model, messages, opts = {}) {
   const { max_tokens = 2048, temperature = 0.7, retries = 2, validate = null, label = "json" } = opts;
   let lastErr = "unknown";
+  let lastParsed = null;
   let msgs = messages;
   for (let attempt = 0; attempt <= retries; attempt++) {
     const text = await runText(env, model, msgs, { max_tokens, temperature, jsonMode: true });
     const parsed = parseJson(text);
+    lastParsed = parsed;
     if (!parsed) {
       lastErr = "parse_failed";
     } else if (validate) {
@@ -137,7 +139,9 @@ export async function runTextJson(env, model, messages, opts = {}) {
       },
     ];
   }
-  throw new Error(`runTextJson(${label}) failed after ${retries + 1} attempts: ${lastErr}`);
+  let dump = "";
+  try { dump = " | last_output=" + JSON.stringify(lastParsed).slice(0, 2000); } catch {}
+  throw new Error(`runTextJson(${label}) failed after ${retries + 1} attempts: ${lastErr}${dump}`);
 }
 
 /** Run fn over items with bounded concurrency; results stay in input order. */

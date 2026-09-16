@@ -2,16 +2,18 @@
 // POST /api/tiktok/teaser — free teaser: 5 hook scripts for the creator's niche.
 // Body: { niche, on_camera, hours_per_week, handle? }
 //
-// Free and unauthenticated, so abuse control is a KV-backed per-IP hourly cap
-// (fail-open when no KV binding). Inputs are sanitized and length-capped.
+// Free and unauthenticated, so the free tier is a KV-backed per-IP cap:
+// ONE free teaser per IP per 24h (fail-open when no KV binding). The second
+// free use from the same IP gets a 429 with a paywall-friendly message.
+// Inputs are sanitized and length-capped.
 
 import { runTextJson, MODELS } from "./_lib/ai.js";
 import { cleanIntake, intakeErrors } from "./_lib/inputs.js";
 import { teaserHooks } from "./_lib/prompts.js";
 import { sectionValidator, findBannedClaims } from "./_lib/claims.js";
 
-const RL_CAP = 20; // teasers per IP per hour
-const RL_WINDOW_S = 3600;
+const RL_CAP = 1; // free teasers per IP per window
+const RL_WINDOW_S = 86400; // 24h
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -40,7 +42,17 @@ async function checkRateLimit(env, request) {
 export async function onRequestPost({ request, env }) {
   try {
     const rl = await checkRateLimit(env, request);
-    if (!rl.ok) return json({ ok: false, error: "rate_limited" }, 429);
+    if (!rl.ok) {
+      return json(
+        {
+          ok: false,
+          error: "rate_limited",
+          message:
+            "You've already used your free teaser. Unlock the full 30-day playbook — 30 hooks, posting plan, bio pack, and trend playbook — for $27.",
+        },
+        429
+      );
+    }
 
     let body;
     try {

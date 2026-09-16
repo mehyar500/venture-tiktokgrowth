@@ -21,7 +21,7 @@
 
 import { runTextJson, MODELS } from "./_lib/ai.js";
 import { cleanIntake, intakeErrors } from "./_lib/inputs.js";
-import { fullHooks, fullPlan, fullBioPlaybook } from "./_lib/prompts.js";
+import { fullHooks, fullPlan, fullBioPack, fullTrendPlaybook } from "./_lib/prompts.js";
 import { sectionValidator, sanitizeManifest } from "./_lib/claims.js";
 
 const nowSql = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
@@ -92,35 +92,46 @@ async function buildPlan(env, intake, hooks) {
   }));
 }
 
-async function buildBioPlaybook(env, intake) {
-  const spec = fullBioPlaybook(intake);
+async function buildBioPack(env, intake) {
+  const spec = fullBioPack(intake);
   const { parsed } = await runTextJson(env, MODELS[spec.model], [
     { role: "system", content: spec.system },
     { role: "user", content: spec.user },
   ], {
-    max_tokens: 3500, temperature: 0.7, retries: 1, label: "bio-playbook",
+    max_tokens: 1500, temperature: 0.7, retries: 2, label: "bio-pack",
     validate: sectionValidator(
-      (d) => d && d.bio_pack && Array.isArray(d.bio_pack.bios) && d.bio_pack.bios.length >= 3 &&
-        Array.isArray(d.bio_pack.ctas) && d.bio_pack.ctas.length >= 3 &&
-        d.trend_playbook && Array.isArray(d.trend_playbook.steps) && d.trend_playbook.steps.length >= 5 &&
-        Array.isArray(d.trend_playbook.dos) && d.trend_playbook.dos.length >= 5 &&
-        Array.isArray(d.trend_playbook.donts) && d.trend_playbook.donts.length >= 5,
-      "bio pack + trend playbook"
+      (d) => d && Array.isArray(d.bios) && d.bios.length >= 3 &&
+        Array.isArray(d.ctas) && d.ctas.length >= 3,
+      "bio pack"
     ),
   });
   return {
-    bio_pack: {
-      bios: parsed.bio_pack.bios.slice(0, 3).map((b) => String(b).slice(0, 150)),
-      ctas: parsed.bio_pack.ctas.slice(0, 3).map((c) => String(c).slice(0, 100)),
-    },
-    trend_playbook: {
-      steps: parsed.trend_playbook.steps.slice(0, 5).map((s) => ({
-        title: String(s.title || "").slice(0, 120),
-        detail: String(s.detail || "").slice(0, 1200),
-      })),
-      dos: parsed.trend_playbook.dos.slice(0, 5).map((x) => String(x).slice(0, 300)),
-      donts: parsed.trend_playbook.donts.slice(0, 5).map((x) => String(x).slice(0, 300)),
-    },
+    bios: parsed.bios.slice(0, 3).map((b) => String(b).slice(0, 150)),
+    ctas: parsed.ctas.slice(0, 3).map((c) => String(c).slice(0, 100)),
+  };
+}
+
+async function buildTrendPlaybook(env, intake) {
+  const spec = fullTrendPlaybook(intake);
+  const { parsed } = await runTextJson(env, MODELS[spec.model], [
+    { role: "system", content: spec.system },
+    { role: "user", content: spec.user },
+  ], {
+    max_tokens: 2500, temperature: 0.7, retries: 2, label: "trend-playbook",
+    validate: sectionValidator(
+      (d) => d && Array.isArray(d.steps) && d.steps.length >= 5 &&
+        Array.isArray(d.dos) && d.dos.length >= 5 &&
+        Array.isArray(d.donts) && d.donts.length >= 5,
+      "trend playbook"
+    ),
+  });
+  return {
+    steps: parsed.steps.slice(0, 5).map((s) => ({
+      title: String(s.title || "").slice(0, 120),
+      detail: String(s.detail || "").slice(0, 1200),
+    })),
+    dos: parsed.dos.slice(0, 5).map((x) => String(x).slice(0, 300)),
+    donts: parsed.donts.slice(0, 5).map((x) => String(x).slice(0, 300)),
   };
 }
 
@@ -178,14 +189,21 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
     const bg = (async () => {
       const t0 = Date.now();
+      const mark = (s) => env.LEADS_DB.prepare(
+        "UPDATE tiktokgrowth_orders SET failure_reason=? WHERE id=? AND status='generating'"
+      ).bind(s, order.id).run().catch(() => {});
       try {
-        // Phase 1: hooks + bio in parallel (independent).
-        const [hookScripts, bioPlaybook] = await Promise.all([
+        // Phase 1: hooks + bio + trends in parallel (independent).
+        await mark("phase:hooks+bio+trends start");
+        const [hookScripts, bioPack, trendPlaybook] = await Promise.all([
           buildHookScripts(env, intake),
-          buildBioPlaybook(env, intake),
+          buildBioPack(env, intake),
+          buildTrendPlaybook(env, intake),
         ]);
+        await mark("phase:hooks+bio+trends done");
         // Phase 2: plan (uses hooks for context).
         const plan = await buildPlan(env, intake, hookScripts);
+        await mark("phase:plan done");
 
         const rawManifest = {
           version: 1,
@@ -195,8 +213,8 @@ export async function onRequestPost({ request, env, waitUntil }) {
           generated_at: new Date().toISOString(),
           posting_plan: plan,
           hook_scripts: hookScripts,
-          bio_pack: bioPlaybook.bio_pack,
-          trend_playbook: bioPlaybook.trend_playbook,
+          bio_pack: bioPack,
+          trend_playbook: trendPlaybook,
           compliance_note: COMPLIANCE_NOTE,
         };
 
@@ -212,11 +230,12 @@ export async function onRequestPost({ request, env, waitUntil }) {
 
         console.error(`tiktok/generate done order=${order.id} ms=${Date.now() - t0} sanitized=${replaced}`);
       } catch (e) {
-        console.error("tiktok/generate background build failed", e && e.message);
+        const msg = String((e && e.message) || e).slice(0, 500);
+        console.error("tiktok/generate background build failed", msg);
         try {
           await env.LEADS_DB.prepare(
-            "UPDATE tiktokgrowth_orders SET status='failed' WHERE id=? AND status!='ready'"
-          ).bind(order.id).run();
+            "UPDATE tiktokgrowth_orders SET status='failed', failure_reason=? WHERE id=? AND status!='ready'"
+          ).bind(msg, order.id).run();
         } catch {}
       }
     })();

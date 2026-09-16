@@ -124,18 +124,32 @@ export function fullPlan(inputs, hooksSummary) {
 }
 
 // ── FULL 3/3: bio pack + trend-jacking playbook ────────────────────────────
-export function fullBioPlaybook(inputs) {
+export function fullBioPack(inputs) {
   return {
     model: "text",
     json: true,
     system:
-      `You are a profile optimizer and trend analyst for short-form creators. Two deliverables. ` +
+      `You are a profile optimizer for short-form creators. One deliverable. ` +
       antiGeneric() +
       `\n${COMPLIANCE}\n${SUPERLATIVES_RULE}\n${NO_EMDASH}` +
-      `\nBIO PACK: 3 profile bios for this niche, each <= 150 chars, each following the shape: who this is for + what they get + cadence. Then 3 CTA options (link-in-bio / pinned comment / video CTA), each specific, each <= 100 chars. ` +
-      `TREND-JACKING PLAYBOOK: 5 steps for spotting a trend early and adapting it to this niche WITHOUT copying anyone — the method is: daily trend reconnaissance, the 3-question adaptation filter (does it fit my lane / can I add a real take / can I film it today), sound selection, the 48-hour rule, and measuring what to repeat. Then 5 dos and 5 donts: all skill-based, all on-platform. Donts must include: no bots/automation, no reposting others' content as your own, no engagement pods, no buying followers/views, no trend-hopping that breaks your lane.`,
+      `\nBIO PACK: 3 profile bios for this niche, each <= 150 chars, each following the shape: who this is for + what they get + cadence. Then 3 CTA options (link-in-bio / pinned comment / video CTA), each specific to the niche, each <= 100 chars.`,
     user:
       intakeBlock(inputs) +
-      `\n${JSON_RULE}\n${PREFLIGHT}\nSchema:\n{\n  "bio_pack": { "bios": ["<bio 1>", "<bio 2>", "<bio 3>"], "ctas": ["<cta 1>", "<cta 2>", "<cta 3>"] },\n  "trend_playbook": {\n    "steps": [ { "title": "<step title>", "detail": "<3-4 sentences of method>" } ],\n    "dos": ["<do 1>", "<do 2>", "<do 3>", "<do 4>", "<do 5>"],\n    "donts": ["<dont 1>", "<dont 2>", "<dont 3>", "<dont 4>", "<dont 5>"]\n  }\n}\nExactly 3 bios, 3 ctas, 5 steps, 5 dos, 5 donts.`,
+      `\n${JSON_RULE}\n${PREFLIGHT}\nSchema:\n{\n  "bios": ["<bio 1>", "<bio 2>", "<bio 3>"],\n  "ctas": ["<cta 1>", "<cta 2>", "<cta 3>"]\n}\nReturn exactly 3 bios and exactly 3 ctas.`,
+  };
+}
+
+export function fullTrendPlaybook(inputs) {
+  return {
+    model: "text",
+    json: true,
+    system:
+      `You are a trend analyst for short-form creators. One deliverable. ` +
+      antiGeneric() +
+      `\n${COMPLIANCE}\n${SUPERLATIVES_RULE}\n${NO_EMDASH}` +
+      `\nTREND-JACKING PLAYBOOK: 5 steps for spotting a trend early and adapting it to this niche WITHOUT copying anyone. The 5 steps are: (1) daily trend reconnaissance, (2) the 3-question adaptation filter (does it fit my lane / can I add a real take / can I film it today), (3) sound selection, (4) the 48-hour rule, (5) measuring what to repeat. Then 5 dos and 5 donts: all skill-based, all on-platform. The 5 donts must be: no bots/automation, no reposting others' content as your own, no engagement pods, no buying followers/views, no trend-hopping that breaks your lane.`,
+    user:
+      intakeBlock(inputs) +
+      `\n${JSON_RULE}\n${PREFLIGHT}\nSchema:\n{\n  "steps": [ { "title": "<step title>", "detail": "<3-4 sentences of method>" }, { "title": "<step 2 title>", "detail": "<detail>" }, { "title": "<step 3 title>", "detail": "<detail>" }, { "title": "<step 4 title>", "detail": "<detail>" }, { "title": "<step 5 title>", "detail": "<detail>" } ],\n  "dos": ["<do 1>", "<do 2>", "<do 3>", "<do 4>", "<do 5>"],\n  "donts": ["<dont 1>", "<dont 2>", "<dont 3>", "<dont 4>", "<dont 5>"]\n}\nReturn exactly 5 steps (each with title and detail), exactly 5 dos, and exactly 5 donts.`,
   };
 }

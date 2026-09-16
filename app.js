@@ -157,7 +157,9 @@ async function submitTeaser(form) {
     const body = await res.json().catch(function () { return null; });
     if (!res.ok || !body || body.ok !== true) {
       const msg = (body && (body.message || body.error)) || ("HTTP " + res.status);
-      throw new Error(String(msg));
+      const err = new Error(String(msg));
+      err.code = body && body.error;
+      throw err;
     }
     renderTeaserResult(body);
     statusEl.textContent = "";
@@ -178,6 +180,15 @@ async function submitTeaser(form) {
   } catch (err) {
     statusEl.textContent = "";
     statusEl.className = "status";
+    if (err && err.code === "rate_limited") {
+      resultEl.innerHTML =
+        '<div class="dev-fallback">' +
+        "<strong>You've already used your free teaser.</strong><br>" +
+        esc(err.message || "One free teaser per day.") +
+        '<br><br><a href="#pricing" class="hero-cta">Unlock the full 30-day playbook — $27</a>' +
+        "</div>";
+      return;
+    }
     resultEl.innerHTML =
       '<div class="dev-fallback">' +
       "<strong>Couldn't generate the teaser.</strong><br>" +

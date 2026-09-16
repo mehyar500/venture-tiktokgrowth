@@ -1,0 +1,23 @@
+# TikTok Growth System
+
+30-day organic TikTok content playbook: a posting plan, 30 hook scripts, a bio + CTA pack, and a trend-jacking playbook. Built for the buyer's niche, on-camera comfort, and hours per week.
+
+## Key pages
+
+- / — landing page with free teaser (5 hook scripts) and $27 checkout
+- /success.html — post-Stripe confirmation; polls payment status, links to the playbook
+- /deliverable.html — the buyer's private playbook page (token-gated), with Download-PDF via print
+
+## API
+
+- POST /api/tiktok/teaser — free: { niche, on_camera, hours_per_week } → 5 hook scripts. KV rate-limited per IP.
+- POST /api/tiktok/generate — paid: { order_token, inputs } → full playbook manifest. Gated on tiktokgrowth_orders.access_token. Idempotent.
+- GET /api/tiktok/deliverable?token= — token-gated playbook manifest JSON.
+
+## Compliance
+
+Original-content methods only. No bots, no automation, no income or follower promises, no hacks. Banned-copy enforcement runs in three layers: prompt blocks, validator repair nudges, and a last-resort sanitizer (see functions/api/tiktok/_lib/claims.js).
+
+## Pricing
+
+$27 one-time via Stripe, through the centralized https://mehyar.us/api/pay/checkout. 7-day redo-or-refund.

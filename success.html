@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TikTok Growth System: Order confirmed</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://tiktokgrowth.mehyar.us/success.html">
+<meta name="description" content="Your TikTok Growth System order is confirmed. Your playbook is being produced.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#07070f">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="index.html">TikTok<span>Growth</span></a>
+    <nav class="nav">
+      <a href="index.html#inside">What's inside</a>
+      <a href="index.html#pricing">Pricing</a>
+      <a href="index.html#faq">FAQ</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="centered">
+    <div class="check">✓</div>
+    <h1>You're in. Check your email.</h1>
+    <p class="lede">Receipt and access details are on their way. Your playbook is produced automatically, usually within 15 minutes, and lands at the email you checked out with.</p>
+    <div class="status" id="pay-status" role="status"></div>
+    <div id="playbook-ready" hidden>
+      <a class="btn btn-primary btn-lg" id="view-playbook" href="#">View your playbook</a>
+    </div>
+    <div id="retry-wrap" hidden style="margin-top:18px">
+      <button class="btn" id="retry-btn">Retry generation</button>
+      <div class="status" id="retry-status" role="status"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Already have your access token?</h2>
+    <p class="lede">The email we send you carries a private access token. Paste it here to jump straight to your playbook.</p>
+    <form id="token-form" novalidate>
+      <div class="token-form">
+        <input type="text" id="token-input" placeholder="paste your token" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="submit" class="btn btn-primary">View playbook</button>
+      </div>
+      <div class="status" id="token-status"></div>
+    </form>
+    <p class="lede" style="font-size:14px;margin-top:12px">No token yet? It arrives with your receipt, usually within a minute.</p>
+  </section>
+
+  <section>
+    <div class="whatyouget">
+      <h3>What happens next</h3>
+      <ol>
+        <li><strong>We start immediately</strong><p>Your intake (niche, camera comfort, hours per week) goes into the production recipe.</p></li>
+        <li><strong>You get a delivery email</strong><p>Usually within 15 minutes: your playbook link and access token.</p></li>
+        <li><strong>It lives at your private link</strong><p>deliverable.html with your token. Read it there, download the PDF, keep it forever.</p></li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="inner">
+    <div class="footer-base">
+      <span>© 2026 TikTok Growth System. Original content only: no bots, no automation, no hacks.</span>
+      <span><a href="index.html#faq">FAQ</a> · <a href="mailto:info@mehyar.us">Contact</a></span>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+<script>
+/* ---- payment + playbook polling ----
+ * Reads ?token= (the unified access token written by the webhook), polls
+ * https://mehyar.us/api/pay/status until paid, then polls the product's
+ * /api/tiktok/deliverable until the playbook is ready. A retry button
+ * re-POSTs /api/tiktok/generate with the same token on failure.
+ */
+(function () {
+  "use strict";
+  var qs = new URLSearchParams(window.location.search);
+  var token = qs.get("token") || qs.get("access_token");
+  var statusEl = document.getElementById("pay-status");
+  var readyWrap = document.getElementById("playbook-ready");
+  var retryWrap = document.getElementById("retry-wrap");
+  var retryStatus = document.getElementById("retry-status");
+
+  if (!token || token.length < 16) {
+    statusEl.textContent = "";
+    var input = document.getElementById("token-input");
+    if (input) input.focus();
+    return;
+  }
+  var input = document.getElementById("token-input");
+  if (input && !input.value) input.value = token;
+
+  // Fire-and-forget fulfillment backfill (idempotent on the server).
+  try {
+    fetch("https://mehyar.us/api/pay/fulfill-backfill", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: token }),
+    }).catch(function () { /* silent */ });
+  } catch (e) { /* silent */ }
+
+  function setStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = "status " + (cls || "");
+  }
+
+  function pollPay() {
+    setStatus("Confirming your payment…", "busy");
+    fetch("https://mehyar.us/api/pay/status?token=" + encodeURIComponent(token), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        var b = res.body || {};
+        if (b.paid) {
+          setStatus("Payment confirmed. Producing your playbook…", "busy");
+          pollDeliverable();
+        } else if (res.status === 404) {
+          setStatus("We couldn't find that payment. If you just paid, wait a moment and reload.", "error");
+          setTimeout(pollPay, 8000);
+        } else {
+          setTimeout(pollPay, 3000);
+        }
+      })
+      .catch(function () {
+        setStatus("Couldn't reach the payment service. Retrying…", "busy");
+        setTimeout(pollPay, 5000);
+      });
+  }
+
+  function pollDeliverable() {
+    fetch("/api/tiktok/deliverable?token=" + encodeURIComponent(token), { cache: "no-store" })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        var b = res.body || {};
+        if (b.ok) {
+          setStatus("Your playbook is ready.", "ok");
+          var link = document.getElementById("view-playbook");
+          link.href = "deliverable.html?token=" + encodeURIComponent(token);
+          readyWrap.hidden = false;
+        } else if (b.error === "not_ready") {
+          if (b.status === "failed") {
+            setStatus("Generation hit a snag. Hit retry below and we will run it again.", "error");
+            retryWrap.hidden = false;
+          } else {
+            setStatus("Payment confirmed. Producing your playbook, usually a few minutes…", "busy");
+            setTimeout(pollDeliverable, 8000);
+          }
+        } else {
+          setStatus("Hmm: " + (b.error || ("HTTP " + res.status)) + ". Retrying…", "busy");
+          setTimeout(pollDeliverable, 8000);
+        }
+      })
+      .catch(function () {
+        setStatus("Couldn't reach the playbook service. Retrying…", "busy");
+        setTimeout(pollDeliverable, 8000);
+      });
+  }
+
+  document.getElementById("retry-btn").addEventListener("click", function () {
+    var btn = this;
+    btn.disabled = true;
+    retryStatus.textContent = "Regenerating, usually a few minutes…";
+    retryStatus.className = "status busy";
+    fetch("/api/tiktok/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ order_token: token, inputs: {} }),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        btn.disabled = false;
+        if (res.body && res.body.ok) {
+          retryStatus.textContent = "";
+          retryWrap.hidden = true;
+          setStatus("Your playbook is ready.", "ok");
+          var link = document.getElementById("view-playbook");
+          link.href = "deliverable.html?token=" + encodeURIComponent(token);
+          readyWrap.hidden = false;
+        } else {
+          retryStatus.textContent = "Still failing: " + ((res.body && res.body.error) || res.status) + ". Write to info@mehyar.us and we will fix it.";
+          retryStatus.className = "status error";
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        retryStatus.textContent = "Request failed. Try again in a bit.";
+        retryStatus.className = "status error";
+      });
+  });
+
+  document.getElementById("token-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var t = document.getElementById("token-input").value.trim();
+    var st = document.getElementById("token-status");
+    if (!t) {
+      st.textContent = "Paste the token from your email first.";
+      st.className = "status error";
+      return;
+    }
+    window.location.href = "deliverable.html?token=" + encodeURIComponent(t);
+  });
+
+  pollPay();
+})();
+</script>
+</body>
+</html>

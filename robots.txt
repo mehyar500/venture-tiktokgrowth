@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /success.html
+Disallow: /deliverable.html
+
+Sitemap: https://tiktokgrowth.mehyar.us/sitemap.xml

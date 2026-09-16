@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TikTok Growth System: Your playbook</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://tiktokgrowth.mehyar.us/deliverable.html">
+<meta name="description" content="Your TikTok Growth System playbook: 30-day posting plan, 30 hook scripts, bio pack, and trend-jacking playbook.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#07070f">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="site-header">
+  <div class="inner">
+    <a class="brand" href="index.html">TikTok<span>Growth</span></a>
+    <nav class="nav">
+      <a href="index.html#inside">What's inside</a>
+      <a href="index.html#faq">FAQ</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="deliverable-host"></div>
+</main>
+
+<footer>
+  <div class="inner">
+    <div class="footer-base">
+      <span>© 2026 TikTok Growth System. Original content only: no bots, no automation, no hacks.</span>
+      <span><a href="index.html#faq">FAQ</a> · <a href="mailto:info@mehyar.us">Contact</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+"use strict";
+/* Playbook viewer.
+ * PROD: fetches /api/tiktok/deliverable?token= and renders the playbook
+ * manifest (30-day plan, 30 hooks, bio pack, trend playbook). Download PDF
+ * is window.print() with dedicated print CSS.
+ * DEV (?dev=1): renders the sample manifest below so the layout is
+ * reviewable with zero backend.
+ */
+var DEV_MODE = new URLSearchParams(window.location.search).get("dev") === "1";
+
+function esc(s) {
+  return String(s == null ? "" : s)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+var CAMERA_LABEL = {
+  "comfortable": "Comfortable on camera",
+  "getting-there": "Getting comfortable on camera",
+  "prefer-off-camera": "Prefers off-camera formats"
+};
+
+function renderPlaybook(manifest) {
+  var niche = manifest.niche || "your niche";
+  var html = '<a class="back" href="index.html">← Back home</a>';
+  html += '<section class="feature-hero"><p class="eyebrow">Your playbook</p>';
+  html += "<h1>TikTok Growth System: " + esc(niche) + "</h1>";
+  html += '<p class="lede">Your 30-day organic content playbook. Built for your niche, your camera comfort, and your hours per week.</p>';
+  html += '<div class="playbook-meta">' +
+    '<span class="meta-chip">Niche: <strong>' + esc(niche) + "</strong></span>" +
+    '<span class="meta-chip"><strong>' + esc(CAMERA_LABEL[manifest.on_camera] || manifest.on_camera || "") + "</strong></span>" +
+    '<span class="meta-chip"><strong>' + esc(String(manifest.hours_per_week || "")) + "</strong> hrs/week</span>" +
+    (manifest.generated_at ? '<span class="meta-chip">Built ' + esc(manifest.generated_at.slice(0, 10)) + "</span>" : "") +
+    "</div></section>";
+
+  /* 30-day plan */
+  var plan = manifest.posting_plan || [];
+  html += '<section id="plan"><h2>30-day posting plan</h2>' +
+    '<p class="lede">One day at a time. Rest days are planned, not gaps: the cadence matches the hours you said you have.</p>' +
+    '<div class="plan-grid">';
+  plan.forEach(function (d) {
+    html += '<article class="day-card">' +
+      '<div class="day-num">Day ' + esc(String(d.day)) + "</div>" +
+      "<h4>" + esc(d.topic || "") + "</h4>" +
+      '<p class="day-hook">Hook: "' + esc(d.hook || "") + '"</p>' +
+      (d.caption_seed ? "<p>" + esc(d.caption_seed) + "</p>" : "") +
+      (d.format ? '<span class="fmt">' + esc(d.format) + "</span>" : "") +
+      "</article>";
+  });
+  html += "</div></section>";
+
+  /* Hook bank */
+  var hooks = manifest.hook_scripts || [];
+  html += '<section id="hooks"><h2>30 hook scripts</h2>' +
+    '<p class="lede">The first 3 seconds of every video. Each one says why it works and how to film it.</p>' +
+    '<div class="hooks-bank">';
+  hooks.forEach(function (h, i) {
+    html += '<div class="hook-bank-item">' +
+      "<p><span class=\"n\">" + (i + 1) + ".</span> <strong>" + esc(h.hook || "") + "</strong></p>" +
+      '<p class="hook-why">' + esc(h.why_it_works || "") + "</p>" +
+      (h.delivery_tip ? '<p class="hook-why"><em>Film it:</em> ' + esc(h.delivery_tip) + "</p>" : "") +
+      "</div>";
+  });
+  html += "</div></section>";
+
+  /* Bio pack */
+  var bio = manifest.bio_pack || {};
+  html += '<section id="bio"><h2>Bio + CTA pack</h2>' +
+    '<p class="lede">Pick the bio that sounds most like you. Swap it in today.</p>' +
+    "<h3>Profile bios</h3><ul class=\"bio-list\">" +
+    (bio.bios || []).map(function (b) { return "<li>" + esc(b) + "</li>"; }).join("") +
+    "</ul><h3 style=\"margin-top:22px\">Calls to action</h3><ul class=\"cta-list\">" +
+    (bio.ctas || []).map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("") +
+    "</ul></section>";
+
+  /* Trend playbook */
+  var tp = manifest.trend_playbook || {};
+  html += '<section id="trends"><h2>Trend-jacking playbook</h2>' +
+    '<p class="lede">How to spot a trend early and adapt it to your niche without copying anyone.</p>' +
+    '<div class="playbook-steps">';
+  (tp.steps || []).forEach(function (s, i) {
+    html += '<div class="playbook-step"><h4>' + (i + 1) + ". " + esc(s.title || "") + "</h4>" +
+      "<p>" + esc(s.detail || "") + "</p></div>";
+  });
+  html += "</div>";
+  html += '<div class="do-dont"><div class="do-col"><h4>Do</h4><ul>' +
+    (tp.dos || []).map(function (d) { return "<li>" + esc(d) + "</li>"; }).join("") +
+    '</ul></div><div class="dont-col"><h4>Don\'t</h4><ul>' +
+    (tp.donts || []).map(function (d) { return "<li>" + esc(d) + "</li>"; }).join("") +
+    "</ul></div></div></section>";
+
+  html += '<div class="compliance-note">' + esc(manifest.compliance_note || "") + "</div>";
+
+  html += '<div class="pdf-bar no-print"><button class="btn btn-primary btn-lg" id="pdf-btn">Download PDF</button></div>';
+
+  html += '<section class="no-print"><div class="whatyouget"><h3>Questions or a redo?</h3>' +
+    '<p>You get one free redo within 7 days if anything here is unusable. ' +
+    'Reply to your delivery email or write to info@mehyar.us.</p></div></section>';
+
+  return html;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  var host = document.getElementById("deliverable-host");
+  var qs = new URLSearchParams(window.location.search);
+  var token = qs.get("token");
+
+  if (DEV_MODE) {
+    host.innerHTML = renderPlaybook(SAMPLE_MANIFEST) +
+      '<div class="dev-fallback no-print"><strong>Dev sample.</strong> In production this page fetches the playbook for your token.</div>';
+    wirePdf();
+    return;
+  }
+
+  if (!token) {
+    host.innerHTML =
+      '<section class="centered"><h1>No token provided.</h1>' +
+      '<p class="lede">This page needs the access token from your delivery email.</p>' +
+      '<a class="btn btn-primary" href="success.html">Enter your token</a></section>';
+    return;
+  }
+
+  host.innerHTML = '<section class="centered"><p class="lede">Loading your playbook…</p></section>';
+  fetch("/api/tiktok/deliverable?token=" + encodeURIComponent(token), { cache: "no-store" })
+    .then(function (r) { return r.json().then(function (j) { return { status: r.status, body: j }; }); })
+    .then(function (res) {
+      var b = res.body;
+      if (!b || b.ok !== true) {
+        var msg = (b && b.error) || ("HTTP " + res.status);
+        if (msg === "not_ready") {
+          host.innerHTML =
+            '<section class="centered"><h1>Still in the oven.</h1>' +
+            '<p class="lede">Your playbook is being produced, usually within 15 minutes. This page will show it as soon as it is ready; no need to re-enter your token.</p>' +
+            '<a class="btn btn-primary" href="success.html?token=' + encodeURIComponent(token) + '">Check status</a></section>';
+        } else {
+          host.innerHTML =
+            '<section class="centered"><h1>Token not found.</h1>' +
+            '<p class="lede">That token doesn\'t match any playbook (' + esc(msg) + '). Check your email for the exact link.</p></section>';
+        }
+        return;
+      }
+      if (!b.playbook || b.playbook.version !== 1) {
+        host.innerHTML =
+          '<section class="centered"><h1>Playbook unreadable.</h1>' +
+          '<p class="lede">The playbook data is corrupt. Write to info@mehyar.us and we will rebuild it.</p></section>';
+        return;
+      }
+      host.innerHTML = renderPlaybook(b.playbook);
+      wirePdf();
+    })
+    .catch(function () {
+      host.innerHTML =
+        '<section class="centered"><h1>Couldn\'t load.</h1>' +
+        '<p class="lede">The playbook service didn\'t respond. Check your connection and reload.</p></section>';
+    });
+});
+
+function wirePdf() {
+  var btn = document.getElementById("pdf-btn");
+  if (btn) btn.addEventListener("click", function () { window.print(); });
+}
+
+/* Sample manifest so the layout can be reviewed with zero backend. */
+var SAMPLE_MANIFEST = {
+  version: 1,
+  niche: "budget home cooking",
+  on_camera: "getting-there",
+  hours_per_week: 5,
+  generated_at: "2026-09-15T00:00:00Z",
+  posting_plan: [
+    { day: 1, format: "talking-head", topic: "The $10 grocery haul that feeds you all week", hook: "I fed myself for 7 days on $10. Here is the receipt.", caption_seed: "Full breakdown in the comments. What should I cook with it first?", },
+    { day: 2, format: "voiceover", topic: "3 pantry staples that make anything taste expensive", hook: "Your pantry is boring. These 3 things fix it.", caption_seed: "Number 2 is under a dollar. Save this for your next grocery run." }
+  ],
+  hook_scripts: [
+    { hook: "I fed myself for 7 days on $10. Here is the receipt.", why_it_works: "A specific number plus proof earns the next 3 seconds honestly.", delivery_tip: "Hold the actual receipt up to the camera in the first second." },
+    { hook: "Your pantry is boring. These 3 things fix it.", why_it_works: "Direct callout with a concrete payoff: three named things.", delivery_tip: "Voiceover while you line the three items up on the counter." }
+  ],
+  bio_pack: {
+    bios: ["$10/week meals that actually taste good | new recipe Tue + Fri", "Teaching budget cooking one short video at a time", "Grocery hauls, pantry wins, zero waste"],
+    ctas: ["Follow for Tuesday's $10 recipe", "Comment what I should cook next", "Save this for grocery day"]
+  },
+  trend_playbook: {
+    steps: [
+      { title: "Daily trend reconnaissance", detail: "Spend 15 minutes a day on your For You page and the Discover tab. Note sounds and formats that repeat across niches." },
+      { title: "The 3-question adaptation filter", detail: "Does it fit my lane? Can I add a real take? Can I film it today? Three yeses or it waits." },
+      { title: "Sound selection", detail: "Use the trending sound while it is climbing, not after it peaks. Save sounds you like to a collection for filming day." },
+      { title: "The 48-hour rule", detail: "Film and post your take within 48 hours of spotting a trend. Speed matters more than polish here." },
+      { title: "Measure what to repeat", detail: "Watch average watch time, not just views. Double down on the formats that hold attention past 3 seconds." }
+    ],
+    dos: ["Post consistently on a schedule you can sustain", "Adapt trends with your own original take", "Reply to comments with video responses", "Study what keeps YOU watching in your niche", "Keep a running list of video ideas"],
+    donts: ["Do not use bots, automation, or engagement pods", "Do not repost others' content as your own", "Do not buy followers or views", "Do not chase every trend outside your lane", "Do not promise results you cannot prove"]
+  },
+  compliance_note: "Skill-based playbook. Results depend on your execution and consistency — no outcomes promised."
+};
+</script>
+</body>
+</html>

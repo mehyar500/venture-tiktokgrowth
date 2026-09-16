@@ -147,6 +147,14 @@
           var link = document.getElementById("view-playbook");
           link.href = "deliverable.html?token=" + encodeURIComponent(token);
           readyWrap.hidden = false;
+          // Ensure the delivery email goes out: the webhook's background
+          // generation may have outlived its execution window. The backfill
+          // is idempotent — if the email was already sent, this is a no-op.
+          fetch("https://mehyar.us/api/pay/fulfill-backfill", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: token }),
+          }).catch(function () {});
         } else if (b.error === "not_ready") {
           if (b.status === "failed") {
             setStatus("Generation hit a snag. Hit retry below and we will run it again.", "error");

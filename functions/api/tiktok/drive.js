@@ -162,6 +162,20 @@ export async function onRequestPost({ request, env }) {
       `UPDATE tiktokgrowth_orders SET status='ready', output_json=?, ready_at=${nowSql}, failure_reason=NULL WHERE id=? AND status!='ready'`
     ).bind(JSON.stringify(manifest), order.id).run();
 
+    // Trigger the delivery email via backfill (idempotent: no-op if already sent).
+    // Fire-and-forget: the drive's job is done; the email must not depend on
+    // the buyer keeping the success page open.
+    try {
+      await fetch("https://mehyar.us/api/pay/fulfill-backfill", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
+        },
+        body: JSON.stringify({ token: order.access_token }),
+      });
+    } catch {}
+
     return json({ ok: true, status: "ready", sanitized: replaced });
   } catch (e) {
     const msg = String((e && e.message) || e).slice(0, 500);

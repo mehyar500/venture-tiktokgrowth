@@ -82,7 +82,7 @@ function renderPlaybook(manifest) {
     html += '<article class="day-card">' +
       '<div class="day-num">Day ' + esc(String(d.day)) + "</div>" +
       "<h4>" + esc(d.topic || "") + "</h4>" +
-      '<p class="day-hook">Hook: "' + esc(d.hook || "") + '"</p>' +
+      '<p class="day-hook">Hook: "' + esc(d.hook || d.caption || "") + '"</p>' +
       (d.caption_seed ? "<p>" + esc(d.caption_seed) + "</p>" : "") +
       (d.format ? '<span class="fmt">' + esc(d.format) + "</span>" : "") +
       "</article>";

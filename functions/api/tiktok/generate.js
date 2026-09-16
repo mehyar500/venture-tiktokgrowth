@@ -124,7 +124,7 @@ async function buildBioPlaybook(env, intake) {
   };
 }
 
-export async function onRequestPost({ request, env }) {
+export async function onRequestPost({ request, env, waitUntil }) {
   const t0 = Date.now();
   try {
     let body;
@@ -144,7 +144,7 @@ export async function onRequestPost({ request, env }) {
     if (!order) return json({ ok: false, error: "unknown_order" }, 404);
 
     // Idempotent generate: already-ready orders return the stored manifest,
-    // no AI spend.
+    // no AI spend. Already-generating orders return 202 (poll).
     if (order.status === "ready") {
       let manifest = null;
       try { manifest = JSON.parse(order.output_json || "null"); } catch {}
@@ -152,6 +152,9 @@ export async function onRequestPost({ request, env }) {
         return json({ ok: true, manifest, replay: true, ready_at: order.ready_at });
       }
       // Corrupt manifest: fall through and regenerate.
+    }
+    if (order.status === "generating") {
+      return json({ ok: true, status: "generating", poll: true }, 202);
     }
 
     // Merge request inputs over the intake stored at checkout.
@@ -166,47 +169,66 @@ export async function onRequestPost({ request, env }) {
       return json({ ok: false, error: "missing_input", inputs: missing }, 400);
     }
 
-    // ── the three generation passes ──
-    let hookScripts, plan, bioPlaybook;
-    try {
-      hookScripts = await buildHookScripts(env, intake);
-      plan = await buildPlan(env, intake, hookScripts);
-      bioPlaybook = await buildBioPlaybook(env, intake);
-    } catch (e) {
-      console.error("tiktok/generate build failed", e && e.message);
-      try {
-        await env.LEADS_DB.prepare(
-          "UPDATE tiktokgrowth_orders SET status='failed' WHERE id=? AND status!='ready'"
-        ).bind(order.id).run();
-      } catch {}
-      return json({ ok: false, error: "generate_failed" }, 502);
-    }
-
-    const rawManifest = {
-      version: 1,
-      niche: intake.niche,
-      on_camera: intake.on_camera,
-      hours_per_week: intake.hours_per_week,
-      generated_at: new Date().toISOString(),
-      posting_plan: plan,
-      hook_scripts: hookScripts,
-      bio_pack: bioPlaybook.bio_pack,
-      trend_playbook: bioPlaybook.trend_playbook,
-      compliance_note: COMPLIANCE_NOTE,
-    };
-
-    // Last-resort compliance guarantee: sanitize anything that slipped past.
-    const { manifest, replaced } = sanitizeManifest(rawManifest);
-    if (replaced > 0) {
-      console.error(`tiktok/generate sanitizer replaced ${replaced} banned strings (order ${order.id})`);
-    }
-
+    // ── the three generation passes (background via waitUntil) ──
+    // Mark generating NOW, return 202 immediately, do AI work in background.
+    // This avoids edge timeouts on the 3 sequential 70B calls.
     await env.LEADS_DB.prepare(
-      `UPDATE tiktokgrowth_orders SET status='ready', output_json=?, ready_at=${nowSql} WHERE id=? AND status!='ready'`
-    ).bind(JSON.stringify(manifest), order.id).run();
+      "UPDATE tiktokgrowth_orders SET status='generating' WHERE id=? AND status!='ready'"
+    ).bind(order.id).run();
 
-    console.error(`tiktok/generate done order=${order.id} ms=${Date.now() - t0} sanitized=${replaced}`);
-    return json({ ok: true, manifest });
+    const bg = (async () => {
+      const t0 = Date.now();
+      try {
+        // Phase 1: hooks + bio in parallel (independent).
+        const [hookScripts, bioPlaybook] = await Promise.all([
+          buildHookScripts(env, intake),
+          buildBioPlaybook(env, intake),
+        ]);
+        // Phase 2: plan (uses hooks for context).
+        const plan = await buildPlan(env, intake, hookScripts);
+
+        const rawManifest = {
+          version: 1,
+          niche: intake.niche,
+          on_camera: intake.on_camera,
+          hours_per_week: intake.hours_per_week,
+          generated_at: new Date().toISOString(),
+          posting_plan: plan,
+          hook_scripts: hookScripts,
+          bio_pack: bioPlaybook.bio_pack,
+          trend_playbook: bioPlaybook.trend_playbook,
+          compliance_note: COMPLIANCE_NOTE,
+        };
+
+        // Last-resort compliance guarantee: sanitize anything that slipped past.
+        const { manifest, replaced } = sanitizeManifest(rawManifest);
+        if (replaced > 0) {
+          console.error(`tiktok/generate sanitizer replaced ${replaced} banned strings (order ${order.id})`);
+        }
+
+        await env.LEADS_DB.prepare(
+          `UPDATE tiktokgrowth_orders SET status='ready', output_json=?, ready_at=${nowSql} WHERE id=? AND status!='ready'`
+        ).bind(JSON.stringify(manifest), order.id).run();
+
+        console.error(`tiktok/generate done order=${order.id} ms=${Date.now() - t0} sanitized=${replaced}`);
+      } catch (e) {
+        console.error("tiktok/generate background build failed", e && e.message);
+        try {
+          await env.LEADS_DB.prepare(
+            "UPDATE tiktokgrowth_orders SET status='failed' WHERE id=? AND status!='ready'"
+          ).bind(order.id).run();
+        } catch {}
+      }
+    })();
+
+    // In Pages Functions, use waitUntil if available; otherwise await.
+    if (typeof waitUntil === "function") {
+      waitUntil(bg);
+    } else {
+      await bg;
+    }
+
+    return json({ ok: true, status: "generating", poll: true }, 202);
   } catch (e) {
     console.error("tiktok/generate failed", e && e.message);
     return json({ ok: false, error: "generate_failed" }, 500);

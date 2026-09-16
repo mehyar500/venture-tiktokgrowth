@@ -162,6 +162,19 @@ async function submitTeaser(form) {
     renderTeaserResult(body);
     statusEl.textContent = "";
     statusEl.className = "status";
+
+    /* Optional email capture: subscribe to brand + global lists */
+    try {
+      const emailEl = document.getElementById("teaser-email");
+      const email = emailEl ? emailEl.value.trim() : "";
+      if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        fetch("/api/tiktok/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, niche: data.niche }),
+        }).catch(function () {});
+      }
+    } catch {}
   } catch (err) {
     statusEl.textContent = "";
     statusEl.className = "status";

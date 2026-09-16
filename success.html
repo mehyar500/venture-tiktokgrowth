@@ -131,7 +131,8 @@
         }
       })
       .catch(function () {
-        setStatus("Couldn't reach the payment service. Retrying…", "busy");
+        // Silent retry: transient blips shouldn't alarm the buyer.
+        // The token input below works regardless.
         setTimeout(pollPay, 5000);
       });
   }

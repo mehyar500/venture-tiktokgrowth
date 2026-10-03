@@ -346,7 +346,7 @@ main.deliverable-main { padding-bottom: 48px; }
   }
   .plan-grid { grid-template-columns: 1fr 1fr; }
   .grad, .day-num, .hook-format, .hook-bank-item .n, .day-card .fmt { color: #c81e4e; -webkit-text-fill-color: #c81e4e; }
-  .meta-chip { border: 1px solid #ccc; color: #333; }
+  .meta-chip, .compliance-note { border: 1px solid #ccc; background: #fff; color: #333; }
   .meta-chip strong { color: #111; }
   .eyebrow { color: #0a7d78; }
 }

@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';import fs from 'node:fs/promises';import path from 'node:path';import {pathToFileURL,fileURLToPath} from 'node:url';import {execFileSync} from 'node:child_process';
+const root=fileURLToPath(new URL('../',import.meta.url)),[playwrightPath,fixturePath]=process.argv.slice(2);assert.ok(playwrightPath&&fixturePath,'Usage: node scripts/test-print-readability.mjs /path/to/playwright/index.mjs /path/to/synthetic-manifest.json');
+const {chromium}=await import(pathToFileURL(playwrightPath)),manifest=JSON.parse(await fs.readFile(fixturePath,'utf8'));assert.match(manifest.niche,/SYNTHETIC QA/);assert.equal(manifest.posting_plan.length,30);assert.equal(manifest.hook_scripts.length,30);
+const before=execFileSync('git',['-c','safe.directory='+root,'show','ab61967294ad4bc1c5690076f520495b3be615f6:styles.css'],{cwd:root,encoding:'utf8'}),after=await fs.readFile(path.join(root,'styles.css'),'utf8');
+const b=await chromium.launch({executablePath:process.env.PLAYBOOK_QA_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
+const p=await b.newPage({viewport:{width:794,height:1123}});await p.route('**/*',r=>r.abort());await p.setContent(await fs.readFile(path.join(root,'deliverable.html'),'utf8'));await p.evaluate(m=>document.getElementById('deliverable-host').innerHTML=renderPlaybook(m),manifest);
+async function styles(){return p.locator('.meta-chip, .compliance-note').evaluateAll(nodes=>nodes.map(n=>{const s=getComputedStyle(n);return {foreground:s.color,background:s.backgroundColor,text:n.textContent}}))}
+let css=await p.addStyleTag({content:before});const screenBefore=await styles();await p.emulateMedia({media:'print'});const printBefore=await styles();await css.evaluate(n=>n.remove());css=await p.addStyleTag({content:after});const printAfter=await styles();
+function luminance(rgb){return rgb.match(/[\d.]+/g).slice(0,3).map(Number).map(c=>{c/=255;return c<=.04045?c/12.92:((c+.055)/1.055)**2.4}).reduce((s,c,i)=>s+c*[.2126,.7152,.0722][i],0)}
+const contrast=s=>{const a=luminance(s.foreground),b=luminance(s.background);return (Math.max(a,b)+.05)/(Math.min(a,b)+.05)};
+assert.ok(printBefore.some(s=>contrast(s)<4.5),'Regression fixture must reproduce low print contrast');assert.ok(printAfter.every(s=>contrast(s)>=7),'Every metadata/disclaimer text must have high print contrast');assert.deepEqual(printBefore.map(s=>s.text),printAfter.map(s=>s.text));
+await p.emulateMedia({media:'screen'});assert.deepEqual(await styles(),screenBefore,'Screen appearance unchanged');
+for(const [selector,count] of [['.day-card',30],['.hook-bank-item',30],['.bio-list li',3],['.cta-list li',3],['.playbook-step',5]])assert.equal(await p.locator(selector).count(),count);
+console.log(JSON.stringify({result:'PASS',beforeMinimumContrast:Math.min(...printBefore.map(contrast)),afterMinimumContrast:Math.min(...printAfter.map(contrast)),screenUnchanged:true,expectedSectionsRetained:true,syntheticOnly:true,networkRequestsAllowed:0}));
+}finally{await b.close()}

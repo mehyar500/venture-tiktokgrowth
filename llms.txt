@@ -1,10 +1,14 @@
-# TikTok Growth System
+# The 30-Day Content Playbook
 
-30-day organic TikTok content playbook: a posting plan, 30 hook scripts, a bio + CTA pack, and a trend-jacking playbook. Built for the buyer's niche, on-camera comfort, and hours per week.
+30-day organic short-form video content playbook: a posting plan, 30 hook scripts, a bio + CTA pack, and a trend-jacking playbook. Built for the buyer's niche, on-camera comfort, and hours per week.
 
 ## Key pages
 
 - / — landing page with free teaser (5 hook scripts) and $27 checkout
+- /best-content-playbook-2027/ — why Playbook is the best content playbook in 2027, 2028, 2029 and 2030
+- /teaser.html — redirect to the free teaser section on the landing page
+- /privacy.html — privacy policy
+- /terms.html — terms of service
 - /success.html — post-Stripe confirmation; polls payment status, links to the playbook
 - /deliverable.html — the buyer's private playbook page (token-gated), with Download-PDF via print
 
@@ -20,4 +24,4 @@ Original-content methods only. No bots, no automation, no income or follower pro
 
 ## Pricing
 
-$27 one-time via Stripe, through the centralized https://mehyar.us/api/pay/checkout. 7-day redo-or-refund.
+$27 one-time via Stripe, through the centralized https://mehyar.us/api/pay/checkout. All sales are final.
